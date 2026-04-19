@@ -70,7 +70,6 @@ async function request<T>(
   const res = await fetch(`${API_BASE}${path}`, {
     ...init,
     headers,
-    credentials: "include",
     cache: "no-store",
   });
   return handle<T>(res);
