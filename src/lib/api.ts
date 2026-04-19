@@ -349,6 +349,14 @@ export const api = {
     ),
   getArtifact: (slug: string, artifactId: string) =>
     request<ArtifactDetail>(`/w/${slug}/artifacts/${artifactId}`),
+  resetProject: (slug: string, projectId: string) =>
+    request<{
+      project_id: string;
+      state: string;
+      deleted_artifacts: number;
+      deleted_runs: number;
+      plan_cleared: boolean;
+    }>(`/w/${slug}/projects/${projectId}/reset`, { method: "POST" }),
   approveArtifact: (slug: string, artifactId: string, comment?: string) =>
     request<ArtifactDetail>(`/w/${slug}/artifacts/${artifactId}/approve`, {
       method: "POST",

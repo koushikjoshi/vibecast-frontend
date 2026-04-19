@@ -99,6 +99,7 @@ export default function ProjectDetailPage({
   const [approving, setApproving] = useState(false);
   const [producing, setProducing] = useState(false);
   const [approvingAll, setApprovingAll] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -191,6 +192,31 @@ export default function ProjectDetailPage({
       else setError("Failed to start producing run.");
     } finally {
       setProducing(false);
+    }
+  };
+
+  const handleReset = async () => {
+    if (
+      !window.confirm(
+        "Reset this project back to intake? This wipes the plan, every run, and all 12 artifacts. Use this for demo re-runs.",
+      )
+    ) {
+      return;
+    }
+    setError(null);
+    setResetting(true);
+    try {
+      await api.resetProject(slug, id);
+      setActiveRunId(null);
+      setPlan(null);
+      setRuns([]);
+      setArtifacts([]);
+      await refresh();
+    } catch (err) {
+      if (err instanceof ApiError) setError(err.message);
+      else setError("Failed to reset project.");
+    } finally {
+      setResetting(false);
     }
   };
 
@@ -348,6 +374,22 @@ export default function ProjectDetailPage({
             <span className="rounded-full border border-violet-200 bg-violet-50 px-3 py-1 text-xs font-medium text-violet-800 dark:border-violet-900/60 dark:bg-violet-950/40 dark:text-violet-200">
               {artifacts.length} artifact{artifacts.length === 1 ? "" : "s"} drafted
             </span>
+          )}
+          {(plan || artifacts.length > 0 || runs.length > 0) && (
+            <button
+              type="button"
+              onClick={handleReset}
+              disabled={resetting || !!activeRunId}
+              className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-3 py-1 text-xs font-medium text-zinc-600 transition hover:border-red-300 hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:border-red-900/60 dark:hover:bg-red-950/30 dark:hover:text-red-300"
+              title="Wipe plan, runs, and artifacts so you can re-run from intake"
+            >
+              {resetting ? (
+                <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              ) : (
+                <span aria-hidden>↺</span>
+              )}
+              Reset to intake
+            </button>
           )}
         </div>
       </header>
