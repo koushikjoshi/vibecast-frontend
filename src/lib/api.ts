@@ -249,7 +249,6 @@ async function requestForm<T>(path: string, form: FormData): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     method: "POST",
     body: form,
-    credentials: "include",
     cache: "no-store",
   });
   return handle<T>(res);
