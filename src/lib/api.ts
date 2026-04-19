@@ -363,5 +363,14 @@ export const api = {
         body: JSON.stringify({ comment: comment ?? null }),
       },
     ),
+  approvalQueue: (slug: string) =>
+    request<
+      {
+        artifact: ArtifactSummary;
+        project_id: string;
+        project_name: string;
+        project_slug: string;
+      }[]
+    >(`/w/${slug}/approval`),
 };
 

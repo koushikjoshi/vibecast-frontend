@@ -1,11 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { ApiError, MeOut, WorkspaceOut, api } from "@/lib/api";
-import { Button } from "@/components/ui/button";
+import { ApiError, WorkspaceOut, api } from "@/lib/api";
 
 type Params = { slug: string };
 
@@ -16,10 +15,8 @@ export default function WorkspaceLayout({
   children: React.ReactNode;
   params: Promise<Params> | Params;
 }) {
-  const router = useRouter();
   const pathname = usePathname();
   const [slug, setSlug] = useState<string | null>(null);
-  const [me, setMe] = useState<MeOut | null>(null);
   const [workspace, setWorkspace] = useState<WorkspaceOut | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -30,39 +27,22 @@ export default function WorkspaceLayout({
       if (cancelled) return;
       setSlug(resolved.slug);
       try {
-        const [meRes, wsRes] = await Promise.all([
-          api.me(),
-          api.getWorkspace(resolved.slug),
-        ]);
+        const wsRes = await api.getWorkspace(resolved.slug);
         if (cancelled) return;
-        setMe(meRes);
         setWorkspace(wsRes);
       } catch (err) {
         if (cancelled) return;
-        if (err instanceof ApiError && err.status === 401) {
-          router.replace("/auth/login");
-          return;
+        if (err instanceof ApiError) {
+          setError(err.message);
+        } else {
+          setError("Unable to load workspace.");
         }
-        if (err instanceof ApiError && err.status === 404) {
-          router.replace("/onboarding");
-          return;
-        }
-        setError("Unable to load workspace.");
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [params, router]);
-
-  const handleLogout = async () => {
-    try {
-      await api.logout();
-    } catch {
-      /* ignore */
-    }
-    router.replace("/");
-  };
+  }, [params]);
 
   if (error) {
     return (
@@ -72,7 +52,7 @@ export default function WorkspaceLayout({
     );
   }
 
-  if (!workspace || !me || !slug) {
+  if (!workspace || !slug) {
     return (
       <main className="flex min-h-screen items-center justify-center">
         <div className="h-6 w-6 animate-spin rounded-full border-2 border-zinc-400 border-t-transparent" />
@@ -86,7 +66,6 @@ export default function WorkspaceLayout({
     { href: `/w/${slug}/brand`, label: "Brand Kit" },
     { href: `/w/${slug}/competitors`, label: "Competitors" },
     { href: `/w/${slug}/approval`, label: "Approvals" },
-    { href: `/w/${slug}/traces`, label: "Traces" },
   ];
 
   return (
@@ -102,11 +81,8 @@ export default function WorkspaceLayout({
           </div>
           <div className="flex items-center gap-4 text-sm">
             <span className="hidden text-xs text-zinc-500 sm:inline">
-              {me.email} · {workspace.role}
+              {workspace.slug}
             </span>
-            <Button variant="ghost" size="sm" onClick={handleLogout}>
-              Sign out
-            </Button>
           </div>
         </div>
         <nav className="mx-auto flex max-w-6xl gap-1 overflow-x-auto px-4 pb-2 text-sm">

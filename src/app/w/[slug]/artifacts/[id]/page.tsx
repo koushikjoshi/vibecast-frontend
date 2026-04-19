@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { use, useCallback, useEffect, useState } from "react";
+import React, { use, useCallback, useEffect, useState } from "react";
 
 import { ApiError, ArtifactDetail, api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -24,7 +24,7 @@ const STATE_COLORS: Record<string, string> = {
   failed: "bg-red-100 text-red-800",
 };
 
-function renderValue(value: unknown, depth = 0): JSX.Element {
+function renderValue(value: unknown, depth = 0): React.ReactElement {
   if (value === null || value === undefined) {
     return <span className="text-zinc-400">—</span>;
   }

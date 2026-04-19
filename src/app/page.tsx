@@ -9,10 +9,10 @@ export default function Home() {
         </Link>
         <div className="flex items-center gap-4 text-sm">
           <Link
-            href="/auth/login"
+            href="/w/default"
             className="rounded-md bg-zinc-900 px-4 py-2 font-medium text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900"
           >
-            Sign in
+            Open workspace
           </Link>
         </div>
       </nav>
@@ -32,18 +32,22 @@ export default function Home() {
         </p>
         <div className="flex gap-3">
           <Link
-            href="/auth/login"
+            href="/w/default/projects/new"
             className="inline-flex h-12 items-center justify-center rounded-md bg-zinc-900 px-6 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900"
           >
             Start a marketing project
           </Link>
-          <a
-            href="#how"
+          <Link
+            href="/w/default"
             className="inline-flex h-12 items-center justify-center rounded-md border border-zinc-200 px-6 text-sm font-medium hover:bg-white dark:border-zinc-700 dark:hover:bg-zinc-900"
           >
-            See how it works
-          </a>
+            Open the workspace
+          </Link>
         </div>
+        <p className="max-w-2xl text-xs text-zinc-500">
+          No sign-in required for the hackathon demo. Jump straight into the workspace and
+          start a Marketing Project.
+        </p>
       </section>
 
       <section id="how" className="mt-24 grid gap-6 sm:grid-cols-2">
