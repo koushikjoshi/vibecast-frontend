@@ -4,11 +4,13 @@ import { use, useCallback, useEffect, useState } from "react";
 
 import {
   ApiError,
+  ArtifactSummary,
   CampaignPlan,
   ProjectDetail,
   ProjectRun,
   api,
 } from "@/lib/api";
+import { ArtifactCard } from "@/components/artifact-card";
 import { Button } from "@/components/ui/button";
 import { CampaignPlanView } from "@/components/campaign-plan-view";
 import { LiveTrace } from "@/components/live-trace";
@@ -41,23 +43,28 @@ export default function ProjectDetailPage({
   const [project, setProject] = useState<ProjectDetail | null>(null);
   const [plan, setPlan] = useState<CampaignPlan | null>(null);
   const [runs, setRuns] = useState<ProjectRun[]>([]);
+  const [artifacts, setArtifacts] = useState<ArtifactSummary[]>([]);
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
   const [kickoffPending, setKickoffPending] = useState(false);
   const [approving, setApproving] = useState(false);
+  const [producing, setProducing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
-    const [p, pl, rs] = await Promise.all([
+    const [p, pl, rs, arts] = await Promise.all([
       api.getProject(slug, id),
       api.getLatestPlan(slug, id),
       api.listProjectRuns(slug, id),
+      api.listProjectArtifacts(slug, id),
     ]);
     setProject(p);
     setPlan(pl);
     setRuns(rs);
-    const running = rs.find((r) => r.status === "running" && r.phase === "planning");
+    setArtifacts(arts);
+    const running = rs.find((r) => r.status === "running");
     if (running) setActiveRunId(running.id);
+    else setActiveRunId(null);
   }, [slug, id]);
 
   useEffect(() => {
@@ -121,6 +128,21 @@ export default function ProjectDetailPage({
     }
   };
 
+  const handleProduce = async () => {
+    setError(null);
+    setProducing(true);
+    try {
+      const kickoff = await api.kickoffProducing(slug, id);
+      setActiveRunId(kickoff.run_id);
+      await refresh();
+    } catch (err) {
+      if (err instanceof ApiError) setError(err.message);
+      else setError("Failed to start producing run.");
+    } finally {
+      setProducing(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
@@ -144,6 +166,12 @@ export default function ProjectDetailPage({
     plan !== null &&
     plan.approved_at === null &&
     project.state === "plan_ready";
+  const canProduce =
+    plan !== null &&
+    plan.approved_at !== null &&
+    !activeRunId &&
+    ["producing", "reviewing", "plan_ready"].includes(project.state) &&
+    artifacts.length === 0;
 
   return (
     <div className="flex flex-col gap-12">
@@ -175,6 +203,11 @@ export default function ProjectDetailPage({
           {canApprove && (
             <Button size="lg" onClick={handleApprove} loading={approving}>
               Approve plan
+            </Button>
+          )}
+          {canProduce && (
+            <Button size="lg" onClick={handleProduce} loading={producing}>
+              Produce all 12 artifacts
             </Button>
           )}
           {plan?.approved_at && (
@@ -210,6 +243,19 @@ export default function ProjectDetailPage({
             Campaign plan
           </p>
           <CampaignPlanView plan={plan} />
+        </section>
+      )}
+
+      {artifacts.length > 0 && (
+        <section className="flex flex-col gap-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">
+            Artifacts ({artifacts.length})
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {artifacts.map((a) => (
+              <ArtifactCard key={a.id} slug={slug} artifact={a} />
+            ))}
+          </div>
         </section>
       )}
 

@@ -210,6 +210,41 @@ export type RunDetail = {
   steps: RunStep[];
 };
 
+export type ArtifactSummary = {
+  id: string;
+  project_id: string;
+  studio: "content" | "social" | "lifecycle" | "podcast";
+  type: string;
+  state: string;
+  title: string;
+  brand_verdict: "pass" | "warn" | "block" | string;
+  approved_by: string | null;
+  approved_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ArtifactDetail = ArtifactSummary & {
+  content: Record<string, unknown>;
+  brand_check: {
+    verdict: string;
+    findings?: {
+      verdict: string;
+      rule: string;
+      note: string;
+      section_ref?: string;
+      suggested_rewrite?: string | null;
+    }[];
+  };
+};
+
+export type ArtifactCatalogEntry = {
+  type: string;
+  studio: string;
+  title: string;
+  description: string;
+};
+
 async function requestForm<T>(path: string, form: FormData): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     method: "POST",
@@ -294,5 +329,39 @@ export const api = {
 
   runEventsUrl: (slug: string, runId: string) =>
     `${API_BASE}/w/${slug}/runs/${runId}/events`,
+
+  kickoffProducing: (
+    slug: string,
+    projectId: string,
+    types?: string[],
+  ) =>
+    request<{ run_id: string; project_id: string; status: string; types: string[] }>(
+      `/w/${slug}/projects/${projectId}/produce`,
+      {
+        method: "POST",
+        body: JSON.stringify({ types: types ?? null }),
+      },
+    ),
+  listProjectArtifacts: (slug: string, projectId: string) =>
+    request<ArtifactSummary[]>(`/w/${slug}/projects/${projectId}/artifacts`),
+  getProjectArtifactCatalog: (slug: string, projectId: string) =>
+    request<ArtifactCatalogEntry[]>(
+      `/w/${slug}/projects/${projectId}/artifact-catalog`,
+    ),
+  getArtifact: (slug: string, artifactId: string) =>
+    request<ArtifactDetail>(`/w/${slug}/artifacts/${artifactId}`),
+  approveArtifact: (slug: string, artifactId: string, comment?: string) =>
+    request<ArtifactDetail>(`/w/${slug}/artifacts/${artifactId}/approve`, {
+      method: "POST",
+      body: JSON.stringify({ comment: comment ?? null }),
+    }),
+  requestArtifactChanges: (slug: string, artifactId: string, comment?: string) =>
+    request<ArtifactDetail>(
+      `/w/${slug}/artifacts/${artifactId}/request-changes`,
+      {
+        method: "POST",
+        body: JSON.stringify({ comment: comment ?? null }),
+      },
+    ),
 };
 
