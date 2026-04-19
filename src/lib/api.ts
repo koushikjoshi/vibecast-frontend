@@ -1,6 +1,9 @@
-export const API_BASE =
-  process.env.NEXT_PUBLIC_BACKEND_URL ??
-  "http://qxr4o0g0lkn52an3aao0g2vb.187.127.153.253.sslip.io";
+// We always talk to the backend through the Next.js rewrite proxy
+// (/api/backend/* → FastAPI). This keeps the browser on HTTPS even though
+// the backend is served over plain HTTP, so no mixed-content blocking.
+// Override with NEXT_PUBLIC_BACKEND_URL only for local dev against a
+// running FastAPI on a different origin.
+export const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL ?? "/api/backend";
 
 export type MembershipOut = {
   workspace_id: string;
