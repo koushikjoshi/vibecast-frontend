@@ -98,6 +98,7 @@ export default function ProjectDetailPage({
   const [kickoffPending, setKickoffPending] = useState(false);
   const [approving, setApproving] = useState(false);
   const [producing, setProducing] = useState(false);
+  const [approvingAll, setApprovingAll] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -193,6 +194,27 @@ export default function ProjectDetailPage({
     }
   };
 
+  const handleApproveAll = async () => {
+    setError(null);
+    setApprovingAll(true);
+    try {
+      const pending = artifacts.filter((a) =>
+        ["awaiting_approval", "changes_requested"].includes(a.state),
+      );
+      // Serial on purpose — the backend flips the project state on the
+      // final approval, and that transition needs to see the others done.
+      for (const a of pending) {
+        await api.approveArtifact(slug, a.id, "bulk-approved from project view");
+      }
+      await refresh();
+    } catch (err) {
+      if (err instanceof ApiError) setError(err.message);
+      else setError("Failed to approve all artifacts.");
+    } finally {
+      setApprovingAll(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
@@ -224,6 +246,17 @@ export default function ProjectDetailPage({
     ["producing", "reviewing", "plan_ready"].includes(project.state) &&
     artifacts.length === 0;
 
+  const pendingArtifacts = artifacts.filter((a) =>
+    ["awaiting_approval", "changes_requested"].includes(a.state),
+  );
+  const approvedCount = artifacts.filter(
+    (a) => a.state === "approved" || a.state === "shipped",
+  ).length;
+  const canBulkApprove =
+    !activeRunId && artifacts.length > 0 && pendingArtifacts.length > 0;
+  const isShipped =
+    artifacts.length > 0 && pendingArtifacts.length === 0 && project.state === "shipped";
+
   // The single next action the user should take. Used to drive the
   // "what do I click?" banner so the page is navigable at a glance.
   const nextAction: {
@@ -232,6 +265,7 @@ export default function ProjectDetailPage({
     cta: string;
     onClick: () => void;
     loading: boolean;
+    tone?: "default" | "success";
   } | null = canKickoff
     ? {
         title: "Start planning",
@@ -258,6 +292,28 @@ export default function ProjectDetailPage({
         cta: "Produce artifacts",
         onClick: handleProduce,
         loading: producing,
+      }
+    : canBulkApprove
+    ? {
+        title: `Review ${pendingArtifacts.length} remaining artifact${
+          pendingArtifacts.length === 1 ? "" : "s"
+        }`,
+        description: `${approvedCount} of ${artifacts.length} approved. Open individual drafts to review and request changes, or approve every brand-safe artifact at once to ship the launch.`,
+        cta: "Approve all remaining",
+        onClick: handleApproveAll,
+        loading: approvingAll,
+      }
+    : isShipped
+    ? {
+        title: "Campaign shipped — ready for launch day.",
+        description:
+          "All 12 artifacts are approved. Copy them into your CMS / X / LinkedIn / HN / Product Hunt when you're ready, or start another project.",
+        cta: "Start another project",
+        onClick: () => {
+          window.location.href = `/w/${slug}/projects/new`;
+        },
+        loading: false,
+        tone: "success",
       }
     : null;
 
@@ -299,11 +355,23 @@ export default function ProjectDetailPage({
       <StateProgress state={project.state} />
 
       {nextAction && !activeRunId && (
-        <section className="relative overflow-hidden rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-50 via-white to-violet-50 p-6 dark:border-indigo-900/60 dark:from-indigo-950/40 dark:via-zinc-950 dark:to-violet-950/30">
+        <section
+          className={`relative overflow-hidden rounded-2xl border p-6 ${
+            nextAction.tone === "success"
+              ? "border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-teal-50 dark:border-emerald-900/60 dark:from-emerald-950/40 dark:via-zinc-950 dark:to-teal-950/30"
+              : "border-indigo-200 bg-gradient-to-br from-indigo-50 via-white to-violet-50 dark:border-indigo-900/60 dark:from-indigo-950/40 dark:via-zinc-950 dark:to-violet-950/30"
+          }`}
+        >
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="max-w-2xl">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-indigo-600 dark:text-indigo-300">
-                Next step
+              <p
+                className={`text-[10px] font-semibold uppercase tracking-[0.2em] ${
+                  nextAction.tone === "success"
+                    ? "text-emerald-700 dark:text-emerald-300"
+                    : "text-indigo-600 dark:text-indigo-300"
+                }`}
+              >
+                {nextAction.tone === "success" ? "Launch ready" : "Next step"}
               </p>
               <h2 className="mt-1 text-xl font-semibold tracking-tight">
                 {nextAction.title}
@@ -352,10 +420,43 @@ export default function ProjectDetailPage({
       )}
 
       {artifacts.length > 0 && (
-        <section className="flex flex-col gap-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">
-            Artifacts ({artifacts.length})
-          </p>
+        <section className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">
+                Artifacts
+              </p>
+              <p className="mt-1 text-sm text-zinc-700 dark:text-zinc-300">
+                <span className="font-semibold text-zinc-900 dark:text-zinc-50">
+                  {approvedCount}
+                </span>{" "}
+                of {artifacts.length} approved
+                {pendingArtifacts.length > 0 && (
+                  <span className="ml-2 text-zinc-500">
+                    · {pendingArtifacts.length} awaiting your review
+                  </span>
+                )}
+              </p>
+            </div>
+            {pendingArtifacts.length > 0 && (
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={handleApproveAll}
+                loading={approvingAll}
+              >
+                Approve all remaining
+              </Button>
+            )}
+          </div>
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-indigo-500 via-violet-500 to-emerald-500 transition-[width] duration-500"
+              style={{
+                width: `${Math.round((approvedCount / Math.max(artifacts.length, 1)) * 100)}%`,
+              }}
+            />
+          </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {artifacts.map((a) => (
               <ArtifactCard key={a.id} slug={slug} artifact={a} />
