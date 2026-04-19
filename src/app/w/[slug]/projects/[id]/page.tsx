@@ -161,7 +161,8 @@ export default function ProjectDetailPage({
 
   const canKickoff =
     ["intake", "planning", "plan_ready"].includes(project.state) &&
-    !activeRunId;
+    !activeRunId &&
+    plan === null;
   const canApprove =
     plan !== null &&
     plan.approved_at === null &&
@@ -172,6 +173,43 @@ export default function ProjectDetailPage({
     !activeRunId &&
     ["producing", "reviewing", "plan_ready"].includes(project.state) &&
     artifacts.length === 0;
+
+  // The single next action the user should take. Used to drive the
+  // "what do I click?" banner so the page is navigable at a glance.
+  const nextAction: {
+    title: string;
+    description: string;
+    cta: string;
+    onClick: () => void;
+    loading: boolean;
+  } | null = canKickoff
+    ? {
+        title: "Start planning",
+        description:
+          "Your CMO agent will read the sources, research competitors on the live web, and submit a Campaign Plan for your review. ~40 seconds.",
+        cta: "Run planning",
+        onClick: handleKickoff,
+        loading: kickoffPending,
+      }
+    : canApprove
+    ? {
+        title: "Review & approve the plan",
+        description:
+          "The plan below is the brief every downstream artifact will use. Approve it to unlock all 12 production artifacts.",
+        cta: "Approve plan",
+        onClick: handleApprove,
+        loading: approving,
+      }
+    : canProduce
+    ? {
+        title: "Produce all 12 artifacts",
+        description:
+          "Blog, press, release notes, X thread, LinkedIn × 2, HN, Product Hunt, 2 emails, battle card, podcast. Drafted by specialist agents, brand-checked, streamed live.",
+        cta: "Produce artifacts",
+        onClick: handleProduce,
+        loading: producing,
+      }
+    : null;
 
   return (
     <div className="flex flex-col gap-12">
@@ -195,28 +233,43 @@ export default function ProjectDetailPage({
           </p>
         </div>
         <div className="flex flex-col items-end gap-2">
-          {canKickoff && (
-            <Button size="lg" onClick={handleKickoff} loading={kickoffPending}>
-              Run planning
-            </Button>
-          )}
-          {canApprove && (
-            <Button size="lg" onClick={handleApprove} loading={approving}>
-              Approve plan
-            </Button>
-          )}
-          {canProduce && (
-            <Button size="lg" onClick={handleProduce} loading={producing}>
-              Produce all 12 artifacts
-            </Button>
-          )}
           {plan?.approved_at && (
             <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-800">
               Plan approved · {new Date(plan.approved_at).toLocaleString()}
             </span>
           )}
+          {artifacts.length > 0 && (
+            <span className="rounded-full border border-violet-200 bg-violet-50 px-3 py-1 text-xs font-medium text-violet-800">
+              {artifacts.length} artifact{artifacts.length === 1 ? "" : "s"} drafted
+            </span>
+          )}
         </div>
       </header>
+
+      {nextAction && !activeRunId && (
+        <section className="relative overflow-hidden rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-50 via-white to-violet-50 p-6 dark:border-indigo-900/60 dark:from-indigo-950/40 dark:via-zinc-950 dark:to-violet-950/30">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="max-w-2xl">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-indigo-600 dark:text-indigo-300">
+                Next step
+              </p>
+              <h2 className="mt-1 text-xl font-semibold tracking-tight">
+                {nextAction.title}
+              </h2>
+              <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
+                {nextAction.description}
+              </p>
+            </div>
+            <Button
+              size="lg"
+              onClick={nextAction.onClick}
+              loading={nextAction.loading}
+            >
+              {nextAction.cta}
+            </Button>
+          </div>
+        </section>
+      )}
 
       {error && (
         <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">

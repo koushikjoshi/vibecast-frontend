@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { api } from "@/lib/api";
 
@@ -20,7 +20,18 @@ const AGENT_COLORS: Record<string, string> = {
   "market-researcher": "bg-sky-500",
   "competitive-intel": "bg-amber-500",
   "launch-strategist": "bg-rose-500",
+  "brand-guardian": "bg-fuchsia-500",
 };
+
+function agentColor(agent?: string | null): string {
+  if (!agent) return "bg-zinc-400";
+  if (AGENT_COLORS[agent]) return AGENT_COLORS[agent];
+  if (agent.startsWith("content:")) return "bg-violet-500";
+  if (agent.startsWith("social:")) return "bg-sky-500";
+  if (agent.startsWith("lifecycle:")) return "bg-amber-500";
+  if (agent.startsWith("podcast:")) return "bg-rose-500";
+  return "bg-zinc-400";
+}
 
 export function LiveTrace({
   slug,
@@ -32,30 +43,47 @@ export function LiveTrace({
   onComplete?: (status: "succeeded" | "failed", data?: Record<string, unknown>) => void;
 }) {
   const [events, setEvents] = useState<TraceEvent[]>([]);
+  // Keyed by agent label — current in-flight streaming text.
+  const [streams, setStreams] = useState<Record<string, string>>({});
+  const [activeAgent, setActiveAgent] = useState<string | null>(null);
   const [status, setStatus] = useState<"running" | "succeeded" | "failed">(
     "running",
   );
   const endRef = useRef<HTMLDivElement | null>(null);
+  const streamRef = useRef<HTMLPreElement | null>(null);
 
   useEffect(() => {
     const url = api.runEventsUrl(slug, runId);
-    const src = new EventSource(url, { withCredentials: true });
-
-    const push = (evt: TraceEvent) => {
-      setEvents((prev) => [...prev, evt]);
-    };
+    const src = new EventSource(url);
 
     const onMessage = (e: MessageEvent) => {
       try {
         const parsed = JSON.parse(e.data) as TraceEvent;
         if (parsed.type === "heartbeat") return;
-        push(parsed);
+
+        if (parsed.type === "chunk") {
+          const key = parsed.agent ?? "stream";
+          setActiveAgent(key);
+          setStreams((prev) => ({
+            ...prev,
+            [key]: (prev[key] ?? "") + (parsed.message ?? ""),
+          }));
+          return;
+        }
+
+        setEvents((prev) => [...prev, parsed]);
+
+        if (parsed.type === "step.started" && parsed.agent) {
+          setActiveAgent(parsed.agent);
+        }
         if (parsed.type === "run.succeeded") {
           setStatus("succeeded");
+          setActiveAgent(null);
           onComplete?.("succeeded", parsed.data ?? undefined);
           src.close();
         } else if (parsed.type === "run.failed") {
           setStatus("failed");
+          setActiveAgent(null);
           onComplete?.("failed", parsed.data ?? undefined);
           src.close();
         }
@@ -64,16 +92,22 @@ export function LiveTrace({
       }
     };
 
-    src.addEventListener("run.started", onMessage);
-    src.addEventListener("step.started", onMessage);
-    src.addEventListener("step.succeeded", onMessage);
-    src.addEventListener("step.failed", onMessage);
-    src.addEventListener("log", onMessage);
-    src.addEventListener("run.succeeded", onMessage);
-    src.addEventListener("run.failed", onMessage);
-    src.addEventListener("message", onMessage);
+    for (const name of [
+      "run.started",
+      "step.started",
+      "step.succeeded",
+      "step.failed",
+      "log",
+      "artifact",
+      "chunk",
+      "run.succeeded",
+      "run.failed",
+      "message",
+    ]) {
+      src.addEventListener(name, onMessage);
+    }
     src.onerror = () => {
-      /* browser will reconnect automatically; just leave UI as is. */
+      /* browser auto-reconnects */
     };
 
     return () => {
@@ -85,25 +119,65 @@ export function LiveTrace({
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [events.length]);
 
+  useEffect(() => {
+    if (streamRef.current) {
+      streamRef.current.scrollTop = streamRef.current.scrollHeight;
+    }
+  }, [activeAgent, streams]);
+
+  const liveText = useMemo(() => {
+    if (!activeAgent) return "";
+    return streams[activeAgent] ?? "";
+  }, [activeAgent, streams]);
+
   return (
-    <div className="rounded-xl border border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900/50">
+    <div className="overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900/50">
       <div className="flex items-center justify-between gap-4 border-b border-zinc-200 px-4 py-2 text-xs dark:border-zinc-800">
         <span className="font-semibold uppercase tracking-wider text-zinc-500">
-          Live trace
+          Live agent trace
         </span>
-        <span
-          className={`rounded-full px-2 py-0.5 font-medium ${
-            status === "running"
-              ? "bg-indigo-100 text-indigo-800"
-              : status === "succeeded"
-              ? "bg-emerald-100 text-emerald-800"
-              : "bg-red-100 text-red-800"
-          }`}
-        >
-          {status}
-        </span>
+        <div className="flex items-center gap-2">
+          {status === "running" && (
+            <span className="flex h-2 w-2">
+              <span className="absolute h-2 w-2 animate-ping rounded-full bg-indigo-400 opacity-75" />
+              <span className="relative h-2 w-2 rounded-full bg-indigo-500" />
+            </span>
+          )}
+          <span
+            className={`rounded-full px-2 py-0.5 font-medium ${
+              status === "running"
+                ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-950/70 dark:text-indigo-200"
+                : status === "succeeded"
+                ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-200"
+                : "bg-red-100 text-red-800 dark:bg-red-950/70 dark:text-red-200"
+            }`}
+          >
+            {status}
+          </span>
+        </div>
       </div>
-      <ol className="max-h-[420px] overflow-y-auto px-4 py-3 font-mono text-xs">
+
+      {activeAgent && liveText && (
+        <div className="border-b border-zinc-200 bg-zinc-900 px-4 py-3 text-xs dark:border-zinc-800">
+          <div className="mb-2 flex items-center gap-2 text-[10px] uppercase tracking-wider text-zinc-400">
+            <span
+              className={`h-1.5 w-1.5 animate-pulse rounded-full ${agentColor(
+                activeAgent,
+              )}`}
+            />
+            <span>streaming · {activeAgent}</span>
+          </div>
+          <pre
+            ref={streamRef}
+            className="max-h-[200px] overflow-y-auto whitespace-pre-wrap break-words font-mono text-[11.5px] leading-relaxed text-zinc-100"
+          >
+            {liveText}
+            <span className="ml-0.5 inline-block h-3 w-1.5 translate-y-0.5 animate-pulse bg-emerald-400" />
+          </pre>
+        </div>
+      )}
+
+      <ol className="max-h-[360px] overflow-y-auto px-4 py-3 font-mono text-xs">
         {events.length === 0 && (
           <li className="py-1 text-zinc-500">Waiting for the CMO to begin…</li>
         )}
@@ -113,11 +187,9 @@ export function LiveTrace({
             className="flex items-start gap-2 py-0.5"
           >
             <span
-              className={`mt-1 h-2 w-2 flex-shrink-0 rounded-full ${
-                e.agent && AGENT_COLORS[e.agent]
-                  ? AGENT_COLORS[e.agent]
-                  : "bg-zinc-400"
-              }`}
+              className={`mt-1 h-2 w-2 flex-shrink-0 rounded-full ${agentColor(
+                e.agent,
+              )}`}
             />
             <div className="flex-1">
               <span className="text-zinc-900 dark:text-zinc-50">
@@ -127,7 +199,10 @@ export function LiveTrace({
               </span>
               {e.data?.cost_usd != null && (
                 <span className="ml-2 text-zinc-500">
-                  ${Number(e.data.cost_usd).toFixed(4)} · {String(e.data.tokens_in ?? "?")}/{String(e.data.tokens_out ?? "?")} tokens · {String(e.data.duration_ms ?? "?")}ms
+                  ${Number(e.data.cost_usd).toFixed(4)} ·{" "}
+                  {String(e.data.tokens_in ?? "?")}/
+                  {String(e.data.tokens_out ?? "?")} tokens ·{" "}
+                  {String(e.data.duration_ms ?? "?")}ms
                 </span>
               )}
             </div>
