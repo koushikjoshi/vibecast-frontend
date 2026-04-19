@@ -1,36 +1,54 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# VibeCast — Frontend
 
-## Getting Started
+Next.js 15 App Router + TypeScript + Tailwind front end for **VibeCast**, the
+newsroom-as-a-service podcast app. See [`PRD.md`](../PRD.md) in the parent
+workspace for the product spec.
 
-First, run the development server:
+## Stack
+
+- **Next.js 15** (App Router, RSC, TypeScript, `src/` dir)
+- **Tailwind CSS v4**
+- **shadcn/ui** (to be installed) for the component kit
+- Server-sent events (SSE) for live trace streaming from the backend
+
+## Routes (planned, per PRD §7.1)
+
+| Path                          | Purpose                                     |
+|-------------------------------|---------------------------------------------|
+| `/`                           | Landing — today's episode + CTA             |
+| `/feed`                       | News Feed (curated daily episodes)          |
+| `/new`                        | Make Your Own (creator flow + live trace)   |
+| `/episode/[id]`               | Episode page (player + transcript + share)  |
+| `/studio`                     | Host Studio — roster                        |
+| `/studio/host/new`            | Hire a host                                 |
+| `/studio/host/[id]`           | Edit a host                                 |
+| `/traces`                     | All runs (search, diff)                     |
+| `/traces/[run_id]`            | Single run's full trace tree                |
+
+RSS feed itself is served by the backend at `/feed.xml`.
+
+## Local dev
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+cp .env.example .env.local   # point NEXT_PUBLIC_BACKEND_URL at your local FastAPI
+npm run dev                  # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The backend must be running at `http://localhost:8000`
+(see [`../vibecast-backend/README.md`](../vibecast-backend/README.md)).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Deployment
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Deployed on **Vercel**. Env vars configured in the Vercel project:
 
-## Learn More
+- `NEXT_PUBLIC_BACKEND_URL` → the Coolify-hosted FastAPI domain
+  (e.g. `https://api.vibecast.yourdomain.com`)
+- `INTERNAL_API_KEY` → matches the backend's `INTERNAL_API_KEY`
 
-To learn more about Next.js, take a look at the following resources:
+## Notes
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Keep the spectator UX a first-class concern — the live trace panel during
+  generation is core product, not a debug affordance (PRD §7.3 Step C).
+- Never import server-only secrets (e.g. `INTERNAL_API_KEY`) into client
+  components. Use Server Components / Route Handlers for that.
