@@ -76,6 +76,81 @@ async function request<T>(
   return handle<T>(res);
 }
 
+export type BrandKitOut = {
+  id: string;
+  version: number;
+  preset: string;
+  tone: Record<string, unknown>;
+  banned_phrases: string[];
+  required_disclaimers: string[];
+  competitor_policy: "blocked" | "name-only" | "comparative-ok";
+  pronunciation: Record<string, unknown>[];
+  legal_footer: string;
+  positioning: string;
+  target_icp: string;
+  voice_samples: Record<string, unknown>[];
+  created_at: string;
+};
+
+export type BrandKitUpdate = Partial<{
+  preset: string;
+  tone: Record<string, unknown>;
+  banned_phrases: string[];
+  required_disclaimers: string[];
+  competitor_policy: "blocked" | "name-only" | "comparative-ok";
+  pronunciation: Record<string, unknown>[];
+  legal_footer: string;
+  positioning: string;
+  target_icp: string;
+  voice_samples: Record<string, unknown>[];
+}>;
+
+export type CompetitorOut = {
+  id: string;
+  name: string;
+  website_url: string;
+  pricing_url: string | null;
+  changelog_url: string | null;
+  positioning_cached: string | null;
+  research: Record<string, unknown> | null;
+  last_fetched_at: string | null;
+  created_at: string;
+};
+
+export type ProjectSummary = {
+  id: string;
+  slug: string;
+  name: string;
+  launch_date: string | null;
+  state: string;
+  target_competitor_id: string | null;
+  created_at: string;
+};
+
+export type ProjectSource = {
+  id: string;
+  type: string;
+  raw_input: string;
+  storage_path: string | null;
+  has_normalized_text: boolean;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+};
+
+export type ProjectDetail = ProjectSummary & {
+  sources: ProjectSource[];
+};
+
+async function requestForm<T>(path: string, form: FormData): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: "POST",
+    body: form,
+    credentials: "include",
+    cache: "no-store",
+  });
+  return handle<T>(res);
+}
+
 export const api = {
   requestMagicLink: (email: string) =>
     request<void>("/auth/magic-link", {
@@ -99,4 +174,39 @@ export const api = {
       body: JSON.stringify(payload),
     }),
   getWorkspace: (slug: string) => request<WorkspaceOut>(`/w/${slug}`),
+
+  getBrandKit: (slug: string) => request<BrandKitOut>(`/w/${slug}/brand`),
+  listBrandVersions: (slug: string) =>
+    request<BrandKitOut[]>(`/w/${slug}/brand/versions`),
+  updateBrandKit: (slug: string, payload: BrandKitUpdate) =>
+    request<BrandKitOut>(`/w/${slug}/brand`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+
+  listCompetitors: (slug: string) =>
+    request<CompetitorOut[]>(`/w/${slug}/competitors`),
+  createCompetitor: (
+    slug: string,
+    payload: {
+      name: string;
+      website_url: string;
+      pricing_url?: string | null;
+      changelog_url?: string | null;
+    },
+  ) =>
+    request<CompetitorOut>(`/w/${slug}/competitors`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  deleteCompetitor: (slug: string, competitorId: string) =>
+    request<void>(`/w/${slug}/competitors/${competitorId}`, { method: "DELETE" }),
+
+  listProjects: (slug: string) =>
+    request<ProjectSummary[]>(`/w/${slug}/projects`),
+  getProject: (slug: string, projectId: string) =>
+    request<ProjectDetail>(`/w/${slug}/projects/${projectId}`),
+  createProject: (slug: string, form: FormData) =>
+    requestForm<ProjectDetail>(`/w/${slug}/projects`, form),
 };
+
