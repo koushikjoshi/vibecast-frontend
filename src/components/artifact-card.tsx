@@ -5,26 +5,28 @@ import Link from "next/link";
 import { ArtifactSummary } from "@/lib/api";
 
 const STUDIO_COLORS: Record<string, string> = {
-  content: "bg-sky-100 text-sky-800",
-  social: "bg-amber-100 text-amber-800",
-  lifecycle: "bg-emerald-100 text-emerald-800",
-  podcast: "bg-violet-100 text-violet-800",
+  content: "bg-violet-100 text-violet-800 dark:bg-violet-950/60 dark:text-violet-200",
+  social: "bg-sky-100 text-sky-800 dark:bg-sky-950/60 dark:text-sky-200",
+  lifecycle: "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-200",
+  podcast: "bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-200",
 };
 
 const STATE_COLORS: Record<string, string> = {
-  drafting: "bg-zinc-100 text-zinc-700",
-  awaiting_approval: "bg-indigo-100 text-indigo-800",
-  changes_requested: "bg-amber-100 text-amber-800",
-  approved: "bg-emerald-100 text-emerald-800",
-  shipped: "bg-emerald-200 text-emerald-900",
-  rejected: "bg-red-100 text-red-800",
-  failed: "bg-red-100 text-red-800",
+  drafting: "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
+  awaiting_approval:
+    "bg-indigo-100 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-200",
+  changes_requested:
+    "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-200",
+  approved: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200",
+  shipped: "bg-emerald-200 text-emerald-900 dark:bg-emerald-950/70 dark:text-emerald-100",
+  rejected: "bg-red-100 text-red-800 dark:bg-red-950/60 dark:text-red-200",
+  failed: "bg-red-100 text-red-800 dark:bg-red-950/60 dark:text-red-200",
 };
 
 const VERDICT_COLORS: Record<string, string> = {
-  pass: "bg-emerald-100 text-emerald-800",
-  warn: "bg-amber-100 text-amber-800",
-  block: "bg-red-100 text-red-800",
+  pass: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200",
+  warn: "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-200",
+  block: "bg-red-100 text-red-800 dark:bg-red-950/60 dark:text-red-200",
 };
 
 export function ArtifactCard({
@@ -37,7 +39,7 @@ export function ArtifactCard({
   return (
     <Link
       href={`/w/${slug}/artifacts/${artifact.id}`}
-      className="flex flex-col rounded-lg border border-zinc-200 bg-white p-5 transition-colors hover:border-zinc-400 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-500"
+      className="group flex flex-col rounded-xl border border-zinc-200 bg-white p-5 transition-all hover:-translate-y-0.5 hover:border-zinc-400 hover:shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-600"
     >
       <div className="flex items-center justify-between gap-2">
         <span

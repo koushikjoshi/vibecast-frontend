@@ -18,20 +18,70 @@ import { LiveTrace } from "@/components/live-trace";
 function stateBadgeClass(state: string): string {
   switch (state) {
     case "intake":
-      return "bg-zinc-100 text-zinc-700";
+      return "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300";
     case "planning":
-      return "bg-indigo-100 text-indigo-800";
+      return "bg-indigo-100 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-200";
     case "plan_ready":
-      return "bg-amber-100 text-amber-800";
+      return "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-200";
     case "producing":
-      return "bg-sky-100 text-sky-800";
+      return "bg-sky-100 text-sky-800 dark:bg-sky-950/60 dark:text-sky-200";
     case "reviewing":
-      return "bg-violet-100 text-violet-800";
+      return "bg-violet-100 text-violet-800 dark:bg-violet-950/60 dark:text-violet-200";
     case "shipped":
-      return "bg-emerald-100 text-emerald-800";
+      return "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200";
     default:
       return "bg-zinc-100 text-zinc-700";
   }
+}
+
+const PIPELINE_STATES = [
+  "intake",
+  "planning",
+  "plan_ready",
+  "producing",
+  "reviewing",
+  "shipped",
+] as const;
+
+function StateProgress({ state }: { state: string }) {
+  const currentIdx = Math.max(
+    0,
+    PIPELINE_STATES.findIndex((s) => s === state),
+  );
+  return (
+    <div className="flex w-full items-center gap-2">
+      {PIPELINE_STATES.map((s, idx) => {
+        const done = idx < currentIdx;
+        const active = idx === currentIdx;
+        return (
+          <div key={s} className="flex flex-1 items-center gap-2">
+            <div className="flex flex-1 flex-col gap-1">
+              <span
+                className={`text-[10px] font-semibold uppercase tracking-wider ${
+                  active
+                    ? "text-zinc-900 dark:text-zinc-50"
+                    : done
+                    ? "text-zinc-500"
+                    : "text-zinc-300 dark:text-zinc-600"
+                }`}
+              >
+                {s.replace("_", " ")}
+              </span>
+              <div
+                className={`h-1 rounded-full ${
+                  done
+                    ? "bg-zinc-900 dark:bg-zinc-50"
+                    : active
+                    ? "bg-gradient-to-r from-indigo-500 via-violet-500 to-rose-500"
+                    : "bg-zinc-200 dark:bg-zinc-800"
+                }`}
+              />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 export default function ProjectDetailPage({
@@ -239,12 +289,14 @@ export default function ProjectDetailPage({
             </span>
           )}
           {artifacts.length > 0 && (
-            <span className="rounded-full border border-violet-200 bg-violet-50 px-3 py-1 text-xs font-medium text-violet-800">
+            <span className="rounded-full border border-violet-200 bg-violet-50 px-3 py-1 text-xs font-medium text-violet-800 dark:border-violet-900/60 dark:bg-violet-950/40 dark:text-violet-200">
               {artifacts.length} artifact{artifacts.length === 1 ? "" : "s"} drafted
             </span>
           )}
         </div>
       </header>
+
+      <StateProgress state={project.state} />
 
       {nextAction && !activeRunId && (
         <section className="relative overflow-hidden rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-50 via-white to-violet-50 p-6 dark:border-indigo-900/60 dark:from-indigo-950/40 dark:via-zinc-950 dark:to-violet-950/30">

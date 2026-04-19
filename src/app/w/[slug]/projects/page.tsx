@@ -38,18 +38,17 @@ export default function ProjectsPage({
 
   return (
     <div className="flex flex-col gap-10">
-      <header className="flex items-end justify-between gap-4">
-        <div>
+      <header className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+        <div className="max-w-2xl">
           <p className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-500">
             Marketing Projects
           </p>
           <h1 className="mt-3 text-3xl font-semibold tracking-tight">
             Every launch, one briefing.
           </h1>
-          <p className="mt-2 max-w-2xl text-sm text-zinc-600 dark:text-zinc-300">
-            A project is a launch, update, or campaign. Upload the docs and URLs your
-            team would brief a marketing department with. VibeCast produces the full
-            campaign from there.
+          <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">
+            Upload the docs and URLs your team would brief a marketing
+            department with. VibeCast produces the full campaign from there.
           </p>
         </div>
         <Link href={`/w/${slug}/projects/new`}>
@@ -57,12 +56,23 @@ export default function ProjectsPage({
         </Link>
       </header>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && (
+        <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {error}
+        </p>
+      )}
 
       {loading ? (
-        <div className="h-28 animate-pulse rounded-lg bg-zinc-100 dark:bg-zinc-900" />
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {[0, 1, 2].map((i) => (
+            <div
+              key={i}
+              className="h-32 animate-pulse rounded-xl bg-zinc-100 dark:bg-zinc-900"
+            />
+          ))}
+        </div>
       ) : items.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-zinc-300 p-10 text-center dark:border-zinc-700">
+        <div className="rounded-2xl border border-dashed border-zinc-300 p-12 text-center dark:border-zinc-700">
           <p className="text-sm font-medium">No projects yet.</p>
           <p className="mt-1 text-sm text-zinc-500">
             Start your first marketing project to see the 4-studio pipeline in action.
@@ -72,23 +82,35 @@ export default function ProjectsPage({
           </Link>
         </div>
       ) : (
-        <ul className="grid gap-4 sm:grid-cols-2">
+        <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {items.map((p) => (
             <li key={p.id}>
               <Link
                 href={`/w/${slug}/projects/${p.id}`}
-                className="block rounded-lg border border-zinc-200 bg-white p-5 transition-colors hover:border-zinc-400 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-500"
+                className="group flex h-full flex-col rounded-xl border border-zinc-200 bg-white p-5 transition-all hover:-translate-y-0.5 hover:border-zinc-400 hover:shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-600"
               >
-                <div className="flex items-start justify-between gap-2">
-                  <p className="font-semibold">{p.name}</p>
-                  <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium uppercase tracking-wider text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
-                    {p.state}
+                <div className="flex items-center justify-between gap-2">
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${stateBadge(
+                      p.state,
+                    )}`}
+                  >
+                    {p.state.replace("_", " ")}
                   </span>
+                  <LaunchCountdown date={p.launch_date ?? null} />
                 </div>
-                <p className="mt-2 text-xs text-zinc-500">
-                  {p.launch_date ? `Launch: ${p.launch_date}` : "No launch date set"} ·
+                <p className="mt-3 text-base font-semibold leading-tight">
+                  {p.name}
+                </p>
+                <p className="mt-2 flex-1 text-xs text-zinc-500">
                   Created {new Date(p.created_at).toLocaleDateString()}
                 </p>
+                <div className="mt-4 flex items-center justify-between text-xs">
+                  <span className="text-zinc-400">{p.slug}</span>
+                  <span className="font-medium text-zinc-900 opacity-0 transition-opacity group-hover:opacity-100 dark:text-zinc-50">
+                    Open →
+                  </span>
+                </div>
               </Link>
             </li>
           ))}
@@ -96,4 +118,50 @@ export default function ProjectsPage({
       )}
     </div>
   );
+}
+
+function LaunchCountdown({ date }: { date: string | null }) {
+  if (!date) {
+    return <span className="text-[10px] text-zinc-400">no launch date</span>;
+  }
+  const d = new Date(date);
+  const now = new Date();
+  const days = Math.round(
+    (d.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+  );
+  let label: string;
+  let color: string;
+  if (days < 0) {
+    label = `shipped ${-days}d ago`;
+    color = "text-zinc-400";
+  } else if (days === 0) {
+    label = "launches today";
+    color = "text-rose-600 dark:text-rose-400";
+  } else if (days <= 7) {
+    label = `in ${days}d`;
+    color = "text-amber-600 dark:text-amber-400";
+  } else {
+    label = `in ${days}d`;
+    color = "text-zinc-500";
+  }
+  return <span className={`text-[10px] font-medium ${color}`}>{label}</span>;
+}
+
+function stateBadge(state: string): string {
+  switch (state) {
+    case "intake":
+      return "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300";
+    case "planning":
+      return "bg-indigo-100 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-200";
+    case "plan_ready":
+      return "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-200";
+    case "producing":
+      return "bg-sky-100 text-sky-800 dark:bg-sky-950/60 dark:text-sky-200";
+    case "reviewing":
+      return "bg-violet-100 text-violet-800 dark:bg-violet-950/60 dark:text-violet-200";
+    case "shipped":
+      return "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200";
+    default:
+      return "bg-zinc-100 text-zinc-700";
+  }
 }
