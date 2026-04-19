@@ -1,5 +1,6 @@
 export const API_BASE =
-  process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8000";
+  process.env.NEXT_PUBLIC_BACKEND_URL ??
+  "http://qxr4o0g0lkn52an3aao0g2vb.187.127.153.253.sslip.io";
 
 export type MembershipOut = {
   workspace_id: string;
