@@ -1,8 +1,36 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { use, useCallback, useEffect, useState } from "react";
 
-import { ApiError, ProjectDetail, api } from "@/lib/api";
+import {
+  ApiError,
+  CampaignPlan,
+  ProjectDetail,
+  ProjectRun,
+  api,
+} from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import { CampaignPlanView } from "@/components/campaign-plan-view";
+import { LiveTrace } from "@/components/live-trace";
+
+function stateBadgeClass(state: string): string {
+  switch (state) {
+    case "intake":
+      return "bg-zinc-100 text-zinc-700";
+    case "planning":
+      return "bg-indigo-100 text-indigo-800";
+    case "plan_ready":
+      return "bg-amber-100 text-amber-800";
+    case "producing":
+      return "bg-sky-100 text-sky-800";
+    case "reviewing":
+      return "bg-violet-100 text-violet-800";
+    case "shipped":
+      return "bg-emerald-100 text-emerald-800";
+    default:
+      return "bg-zinc-100 text-zinc-700";
+  }
+}
 
 export default function ProjectDetailPage({
   params,
@@ -11,16 +39,32 @@ export default function ProjectDetailPage({
 }) {
   const { slug, id } = use(params);
   const [project, setProject] = useState<ProjectDetail | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [plan, setPlan] = useState<CampaignPlan | null>(null);
+  const [runs, setRuns] = useState<ProjectRun[]>([]);
+  const [activeRunId, setActiveRunId] = useState<string | null>(null);
+  const [kickoffPending, setKickoffPending] = useState(false);
+  const [approving, setApproving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    const [p, pl, rs] = await Promise.all([
+      api.getProject(slug, id),
+      api.getLatestPlan(slug, id),
+      api.listProjectRuns(slug, id),
+    ]);
+    setProject(p);
+    setPlan(pl);
+    setRuns(rs);
+    const running = rs.find((r) => r.status === "running" && r.phase === "planning");
+    if (running) setActiveRunId(running.id);
+  }, [slug, id]);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const p = await api.getProject(slug, id);
-        if (cancelled) return;
-        setProject(p);
+        await refresh();
       } catch (err) {
         if (cancelled) return;
         if (err instanceof ApiError) setError(err.message);
@@ -32,7 +76,50 @@ export default function ProjectDetailPage({
     return () => {
       cancelled = true;
     };
-  }, [slug, id]);
+  }, [refresh]);
+
+  const handleKickoff = async () => {
+    setError(null);
+    setKickoffPending(true);
+    try {
+      const kickoff = await api.kickoffPlanning(slug, id);
+      setActiveRunId(kickoff.run_id);
+      await refresh();
+    } catch (err) {
+      if (err instanceof ApiError) setError(err.message);
+      else setError("Failed to start planning run.");
+    } finally {
+      setKickoffPending(false);
+    }
+  };
+
+  const handleTraceComplete = useCallback(
+    async (status: "succeeded" | "failed") => {
+      if (status === "succeeded") {
+        await refresh();
+      } else {
+        setError("The planning run failed. Check the trace for details.");
+        await refresh();
+      }
+    },
+    [refresh],
+  );
+
+  const handleApprove = async () => {
+    if (!plan) return;
+    setApproving(true);
+    setError(null);
+    try {
+      const approved = await api.approvePlan(slug, id);
+      setPlan(approved);
+      await refresh();
+    } catch (err) {
+      if (err instanceof ApiError) setError(err.message);
+      else setError("Approval failed.");
+    } finally {
+      setApproving(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -42,7 +129,7 @@ export default function ProjectDetailPage({
     );
   }
 
-  if (error || !project) {
+  if (!project) {
     return (
       <div className="rounded-lg border border-dashed border-red-300 p-6 text-sm text-red-600">
         {error ?? "Project not found."}
@@ -50,26 +137,87 @@ export default function ProjectDetailPage({
     );
   }
 
+  const canKickoff =
+    ["intake", "planning", "plan_ready"].includes(project.state) &&
+    !activeRunId;
+  const canApprove =
+    plan !== null &&
+    plan.approved_at === null &&
+    project.state === "plan_ready";
+
   return (
-    <div className="flex flex-col gap-10">
-      <header>
-        <p className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-500">
-          Marketing Project
-        </p>
-        <h1 className="mt-3 text-3xl font-semibold tracking-tight">{project.name}</h1>
-        <p className="mt-2 text-sm text-zinc-500">
-          Launch: {project.launch_date ?? "—"} · State:{" "}
-          <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium uppercase tracking-wider text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
-            {project.state}
-          </span>
-        </p>
+    <div className="flex flex-col gap-12">
+      <header className="flex items-start justify-between gap-6">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-500">
+            Marketing Project
+          </p>
+          <h1 className="mt-3 text-3xl font-semibold tracking-tight">
+            {project.name}
+          </h1>
+          <p className="mt-2 text-sm text-zinc-500">
+            Launch: {project.launch_date ?? "—"} · State:{" "}
+            <span
+              className={`rounded-full px-2 py-0.5 text-xs font-medium uppercase tracking-wider ${stateBadgeClass(
+                project.state,
+              )}`}
+            >
+              {project.state}
+            </span>
+          </p>
+        </div>
+        <div className="flex flex-col items-end gap-2">
+          {canKickoff && (
+            <Button size="lg" onClick={handleKickoff} loading={kickoffPending}>
+              Run planning
+            </Button>
+          )}
+          {canApprove && (
+            <Button size="lg" onClick={handleApprove} loading={approving}>
+              Approve plan
+            </Button>
+          )}
+          {plan?.approved_at && (
+            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-800">
+              Plan approved · {new Date(plan.approved_at).toLocaleString()}
+            </span>
+          )}
+        </div>
       </header>
 
+      {error && (
+        <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {error}
+        </p>
+      )}
+
+      {activeRunId && (
+        <section className="flex flex-col gap-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">
+            Current run
+          </p>
+          <LiveTrace
+            slug={slug}
+            runId={activeRunId}
+            onComplete={handleTraceComplete}
+          />
+        </section>
+      )}
+
+      {plan && (
+        <section className="flex flex-col gap-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">
+            Campaign plan
+          </p>
+          <CampaignPlanView plan={plan} />
+        </section>
+      )}
+
       <section>
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-500">
+        <h2 className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">
           Sources ({project.sources.length})
         </h2>
-        <ul className="mt-4 flex flex-col gap-3">
+        <ul className="mt-3 flex flex-col gap-3">
           {project.sources.map((s) => (
             <li
               key={s.id}
@@ -109,16 +257,41 @@ export default function ProjectDetailPage({
         </ul>
       </section>
 
-      <section className="rounded-xl border border-dashed border-zinc-300 p-6 text-sm text-zinc-500 dark:border-zinc-700">
-        <p className="font-medium text-zinc-700 dark:text-zinc-200">
-          Next: kick off the Campaign Planning run.
-        </p>
-        <p className="mt-1">
-          Once the CMO + Research + Strategy agents are wired (Phase 3), hit “Run
-          planning” to see the campaign plan appear with a live trace of every agent,
-          tool call, and citation.
-        </p>
-      </section>
+      {runs.length > 0 && (
+        <section>
+          <h2 className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">
+            Run history
+          </h2>
+          <ul className="mt-3 flex flex-col gap-2 text-sm">
+            {runs.map((r) => (
+              <li
+                key={r.id}
+                className="flex items-center justify-between rounded-md border border-zinc-200 bg-white px-4 py-2 dark:border-zinc-800 dark:bg-zinc-900"
+              >
+                <div className="flex items-center gap-3">
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs font-medium uppercase tracking-wider ${
+                      r.status === "running"
+                        ? "bg-indigo-100 text-indigo-800"
+                        : r.status === "succeeded"
+                        ? "bg-emerald-100 text-emerald-800"
+                        : "bg-red-100 text-red-800"
+                    }`}
+                  >
+                    {r.phase} · {r.status}
+                  </span>
+                  <span className="text-xs text-zinc-500">
+                    {new Date(r.started_at).toLocaleString()}
+                  </span>
+                </div>
+                <span className="text-xs text-zinc-500">
+                  ${r.total_cost_usd.toFixed(4)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </div>
   );
 }

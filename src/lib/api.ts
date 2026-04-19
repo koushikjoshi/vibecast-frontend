@@ -141,6 +141,75 @@ export type ProjectDetail = ProjectSummary & {
   sources: ProjectSource[];
 };
 
+export type CampaignPlan = {
+  id: string;
+  project_id: string;
+  version: number;
+  positioning: string;
+  pillars: {
+    name: string;
+    message: string;
+    proof_points: string[];
+  }[];
+  audience_refinement: string;
+  channel_selection: {
+    channel: string;
+    rationale: string;
+    expected_impact: "high" | "medium" | "low";
+  }[];
+  competitor_angle: string;
+  urgency_framing: string;
+  approved_by: string | null;
+  approved_at: string | null;
+  created_at: string;
+};
+
+export type RunKickoff = {
+  run_id: string;
+  project_id: string;
+  status: string;
+};
+
+export type ProjectRun = {
+  id: string;
+  phase: string;
+  status: string;
+  started_at: string;
+  ended_at: string | null;
+  total_cost_usd: number;
+  error: string | null;
+};
+
+export type RunStep = {
+  id: string;
+  agent: string;
+  tool: string | null;
+  status: string;
+  model: string | null;
+  tokens_in: number | null;
+  tokens_out: number | null;
+  cost_usd: number | null;
+  duration_ms: number | null;
+  input: Record<string, unknown> | null;
+  output: Record<string, unknown> | null;
+  started_at: string;
+  ended_at: string | null;
+};
+
+export type RunDetail = {
+  id: string;
+  project_id: string;
+  phase: string;
+  status: string;
+  started_at: string;
+  ended_at: string | null;
+  total_tokens_in: number;
+  total_tokens_out: number;
+  total_cost_usd: number;
+  error: string | null;
+  steps: RunStep[];
+};
+
 async function requestForm<T>(path: string, form: FormData): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     method: "POST",
@@ -208,5 +277,22 @@ export const api = {
     request<ProjectDetail>(`/w/${slug}/projects/${projectId}`),
   createProject: (slug: string, form: FormData) =>
     requestForm<ProjectDetail>(`/w/${slug}/projects`, form),
+
+  kickoffPlanning: (slug: string, projectId: string) =>
+    request<RunKickoff>(`/w/${slug}/projects/${projectId}/plan`, { method: "POST" }),
+  getLatestPlan: (slug: string, projectId: string) =>
+    request<CampaignPlan | null>(`/w/${slug}/projects/${projectId}/plan`),
+  approvePlan: (slug: string, projectId: string) =>
+    request<CampaignPlan>(`/w/${slug}/projects/${projectId}/plan/approve`, {
+      method: "POST",
+    }),
+  listProjectRuns: (slug: string, projectId: string) =>
+    request<ProjectRun[]>(`/w/${slug}/projects/${projectId}/runs`),
+
+  getRun: (slug: string, runId: string) =>
+    request<RunDetail>(`/w/${slug}/runs/${runId}`),
+
+  runEventsUrl: (slug: string, runId: string) =>
+    `${API_BASE}/w/${slug}/runs/${runId}/events`,
 };
 
